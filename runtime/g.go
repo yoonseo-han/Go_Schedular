@@ -8,10 +8,11 @@ import (
 type State string
 
 const (
-	RUNNING State = "running"
-	WAITING State = "waiting"
-	DEAD    State = "dead"
-	NEW     State = "new"
+	RUNNING  State = "running"
+	WAITING  State = "waiting"
+	DEAD     State = "dead"
+	NEW      State = "new"
+	RUNNABLE State = "runnable"
 )
 
 type G struct {
