@@ -21,6 +21,9 @@ func (rq *RunQueue) add(g *G) {
 
 func (rq *RunQueue) get() *G {
 	rq.mu.Lock()
+	if len(rq.gStore) == 0 {
+		return nil
+	}
 	defer rq.mu.Unlock()
 	return rq.gStore[0]
 }
@@ -34,13 +37,13 @@ func (rq *RunQueue) peek() *G {
 	return rq.gStore[0]
 }
 
-func (rq *RunQueue) poll() *G {
+func (rq *RunQueue) pop() *G {
 	rq.mu.Lock()
 	defer rq.mu.Unlock()
 	if len(rq.gStore) == 0 {
 		return nil
 	}
-
-	// Normally G is considered as unique hence return by reference
-	return rq.gStore[0]
+	firstElement := rq.gStore[0]
+	rq.gStore = rq.gStore[1:]
+	return firstElement
 }
