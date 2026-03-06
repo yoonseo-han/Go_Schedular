@@ -10,19 +10,19 @@ type Scheduler struct {
 }
 
 // Should be singleton?
-func newScheduler() *Scheduler {
+func NewScheduler() *Scheduler {
 	return &Scheduler{
 		runQueue: newRunQueue(),
 	}
 }
 
-func (s *Scheduler) add(g *G) {
+func (s *Scheduler) Add(g *G) {
 	// Change state to runnable
 	g.state = RUNNABLE
 	s.runQueue.add(g)
 }
 
-func (s *Scheduler) run() {
+func (s *Scheduler) Run() {
 	// Run go routine one time only
 	g := s.runQueue.pop()
 	if g == nil {
@@ -39,7 +39,7 @@ func (s *Scheduler) run() {
 	g.state = DEAD
 }
 
-func (s *Scheduler) schedule() {
+func (s *Scheduler) Schedule() {
 	for {
 		// Get first runnable go routine
 		g := s.runQueue.pop()

@@ -24,9 +24,10 @@ type G struct {
 	funcToRun   func()
 }
 
-func newG() *G {
+func NewG(funcToRun func()) *G {
 	return &G{
-		id:    rand.Int64(),
-		state: NEW,
+		id:        rand.Int64(),
+		state:     NEW,
+		funcToRun: funcToRun,
 	}
 }
