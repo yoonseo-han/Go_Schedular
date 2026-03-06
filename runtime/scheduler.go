@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"fmt"
-	"time"
 )
 
 type Scheduler struct {
@@ -45,8 +44,7 @@ func (s *Scheduler) Schedule() {
 		g := s.runQueue.pop()
 
 		if g == nil {
-			time.Sleep(1 * time.Millisecond)
-			continue
+			break
 		}
 
 		if g.state != RUNNABLE {
