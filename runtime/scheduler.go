@@ -60,7 +60,9 @@ func (s *Scheduler) Schedule() {
 		g := s.pStore[s.runPIndex].localQueue.pop()
 
 		if g == nil {
-			break
+			// Move to next P if no runnable go routine found for current P
+			s.runPIndex = (s.runPIndex + 1) % s.GOMAXPROCS
+			continue
 		}
 
 		if g.state != RUNNABLE {
