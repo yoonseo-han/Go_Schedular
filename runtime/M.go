@@ -11,10 +11,12 @@ func NewM(id int64) *M {
 	}
 }
 
-func (m *M) Run() {
-	// Check if there is designated P
+// Run starts the M's schedule loop. If M has no bound P, it acquires one from
+// the scheduler's idle P pool.
+func (m *M) Run(sched *Scheduler) {
 	if m.designatedP == nil {
-		// Get P from idle
-
+		m.designatedP = sched.AcquireP()
 	}
+	// TODO: if m.designatedP still nil (no idle P), block or spin
+	// else: run schedule loop using m.designatedP
 }

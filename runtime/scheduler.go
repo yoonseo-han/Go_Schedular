@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"math/rand/v2"
+	"sync"
 )
 
 const GOMAXPROCS = 10
@@ -12,6 +13,8 @@ type Scheduler struct {
 	runPIndex      int
 	pStore         []*P
 	globalRunQueue *GlobalQueue
+	idlePs         []*P   // P's not bound to any M
+	idleMu         sync.Mutex
 }
 
 // Should be singleton?
@@ -20,15 +23,42 @@ func NewScheduler() *Scheduler {
 		GOMAXPROCS: GOMAXPROCS,
 		addPIndex:  0,
 		runPIndex:  0,
+		idlePs:     make([]*P, 0, GOMAXPROCS),
 	}
 
 	for range GOMAXPROCS {
-		tempScheduler.pStore = append(tempScheduler.pStore, NewP(rand.Int64()))
+		p := NewP(rand.Int64())
+		tempScheduler.pStore = append(tempScheduler.pStore, p)
+		tempScheduler.idlePs = append(tempScheduler.idlePs, p)
 	}
 
 	tempScheduler.globalRunQueue = newGlobalQueue()
 
 	return tempScheduler
+}
+
+// AcquireP returns a P from the idle pool. Caller (M) should bind it.
+// Returns nil if no P is available.
+func (s *Scheduler) AcquireP() *P {
+	s.idleMu.Lock()
+	defer s.idleMu.Unlock()
+	if len(s.idlePs) == 0 {
+		return nil
+	}
+	last := len(s.idlePs) - 1
+	p := s.idlePs[last]
+	s.idlePs = s.idlePs[:last]
+	return p
+}
+
+// ReleaseP puts P back into the idle pool (e.g. when M blocks or exits).
+func (s *Scheduler) ReleaseP(p *P) {
+	if p == nil {
+		return
+	}
+	s.idleMu.Lock()
+	defer s.idleMu.Unlock()
+	s.idlePs = append(s.idlePs, p)
 }
 
 func (s *Scheduler) Add(g *G) {
