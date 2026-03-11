@@ -3,28 +3,36 @@ package runtime
 import "sync"
 
 type RunQueue struct {
-	mu     sync.Mutex
-	gStore []*G // Pointer to always ensure unique G
+	mu      sync.Mutex
+	gStore  []*G // Pointer to always ensure unique G
+	maxSize int
 }
 
 func newRunQueue() *RunQueue {
 	return &RunQueue{
-		gStore: make([]*G, 0),
+		gStore:  make([]*G, 0),
+		maxSize: 10,
 	}
 }
 
-func (rq *RunQueue) add(g *G) {
+func (rq *RunQueue) add(g *G) bool {
 	rq.mu.Lock()
 	defer rq.mu.Unlock()
+
+	if len(rq.gStore) >= rq.maxSize {
+		return false
+	}
+
 	rq.gStore = append(rq.gStore, g)
+	return true
 }
 
 func (rq *RunQueue) get() *G {
 	rq.mu.Lock()
+	defer rq.mu.Unlock()
 	if len(rq.gStore) == 0 {
 		return nil
 	}
-	defer rq.mu.Unlock()
 	return rq.gStore[0]
 }
 

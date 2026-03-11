@@ -7,10 +7,11 @@ import (
 const GOMAXPROCS = 10
 
 type Scheduler struct {
-	GOMAXPROCS int
-	addPIndex  int
-	runPIndex  int
-	pStore     []*P
+	GOMAXPROCS     int
+	addPIndex      int
+	runPIndex      int
+	pStore         []*P
+	globalRunQueue *GlobalQueue
 }
 
 // Should be singleton?
@@ -25,13 +26,18 @@ func NewScheduler() *Scheduler {
 		tempScheduler.pStore = append(tempScheduler.pStore, NewP(rand.Int64()))
 	}
 
+	tempScheduler.globalRunQueue = newGlobalQueue()
+
 	return tempScheduler
 }
 
 func (s *Scheduler) Add(g *G) {
 	// Select which P to add the go routine to based on round robin
 	g.state = RUNNABLE
-	s.pStore[s.addPIndex].localQueue.add(g)
+	if !s.pStore[s.addPIndex].localQueue.add(g) {
+		// Add to global run queue
+		s.globalRunQueue.add(g)
+	}
 	s.addPIndex = (s.addPIndex + 1) % s.GOMAXPROCS
 }
 
