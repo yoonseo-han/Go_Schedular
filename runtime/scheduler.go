@@ -9,32 +9,22 @@ const GOMAXPROCS = 10
 
 type Scheduler struct {
 	GOMAXPROCS     int
-	addPIndex      int
-	runPIndex      int
-	pStore         []*P
 	globalRunQueue *GlobalQueue
-	idlePs         []*P   // P's not bound to any M
+	idlePs         []*P // P's not bound to any M
 	idleMu         sync.Mutex
 }
 
-// Should be singleton?
+// NewScheduler creates the global scheduler with GOMAXPROCS P's in the idle pool.
 func NewScheduler() *Scheduler {
-	tempScheduler := &Scheduler{
-		GOMAXPROCS: GOMAXPROCS,
-		addPIndex:  0,
-		runPIndex:  0,
-		idlePs:     make([]*P, 0, GOMAXPROCS),
+	s := &Scheduler{
+		GOMAXPROCS:     GOMAXPROCS,
+		globalRunQueue: newGlobalQueue(),
+		idlePs:         make([]*P, 0, GOMAXPROCS),
 	}
-
 	for range GOMAXPROCS {
-		p := NewP(rand.Int64())
-		tempScheduler.pStore = append(tempScheduler.pStore, p)
-		tempScheduler.idlePs = append(tempScheduler.idlePs, p)
+		s.idlePs = append(s.idlePs, NewP(rand.Int64()))
 	}
-
-	tempScheduler.globalRunQueue = newGlobalQueue()
-
-	return tempScheduler
+	return s
 }
 
 // AcquireP returns a P from the idle pool. Caller (M) should bind it.
@@ -61,58 +51,9 @@ func (s *Scheduler) ReleaseP(p *P) {
 	s.idlePs = append(s.idlePs, p)
 }
 
+// Add puts a runnable G into the global run queue. M's will pick it up when
+// they need work (from their P's local queue or from global).
 func (s *Scheduler) Add(g *G) {
-	// Select which P to add the go routine to based on round robin
 	g.state = RUNNABLE
-	if !s.pStore[s.addPIndex].localQueue.add(g) {
-		// Add to global run queue
-		s.globalRunQueue.add(g)
-	}
-	s.addPIndex = (s.addPIndex + 1) % s.GOMAXPROCS
-}
-
-func (s *Scheduler) Run() {
-	// Run go routine one time only
-	g := s.pStore[s.runPIndex].localQueue.pop()
-	if g == nil {
-		return
-	}
-
-	if g.state != RUNNABLE {
-		return
-	}
-
-	g.state = RUNNING
-	g.funcToRun()
-	g.state = WAITING
-
-	s.pStore[s.runPIndex].localQueue.add(g)
-	s.runPIndex = (s.runPIndex + 1) % s.GOMAXPROCS
-}
-
-func (s *Scheduler) Schedule() {
-	for {
-		// Get first runnable go routine
-		g := s.pStore[s.runPIndex].localQueue.pop()
-
-		if g == nil {
-			// Move to next P if no runnable go routine found for current P
-			s.runPIndex = (s.runPIndex + 1) % s.GOMAXPROCS
-			continue
-		}
-
-		if g.state != RUNNABLE {
-			continue
-		}
-
-		// Run the go routine
-		g.state = RUNNING
-		g.funcToRun()
-		g.state = WAITING
-
-		// Add the go routine back to the run queue
-		s.pStore[s.runPIndex].localQueue.add(g)
-		s.runPIndex = (s.runPIndex + 1) % s.GOMAXPROCS
-		g.state = RUNNABLE
-	}
+	s.globalRunQueue.add(g)
 }

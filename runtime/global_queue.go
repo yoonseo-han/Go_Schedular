@@ -21,7 +21,7 @@ func (gq *GlobalQueue) add(g *G) {
 	gq.gStore = append(gq.gStore, g)
 }
 
-func (gq *GlobalQueue) poll() *G {
+func (gq *GlobalQueue) pop() *G {
 	gq.mu.Lock()
 	defer gq.mu.Unlock()
 	if len(gq.gStore) == 0 {

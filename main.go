@@ -26,14 +26,15 @@ func baz() {
 }
 
 func main() {
-	scheduler := runtime.NewScheduler()
+	sched := runtime.NewScheduler()
 
 	firstG := runtime.NewG(foo)
-	scheduler.Add(firstG)
+	sched.Add(firstG)
 	secondG := runtime.NewG(bar)
-	scheduler.Add(secondG)
+	sched.Add(secondG)
 	thirdG := runtime.NewG(baz)
-	scheduler.Add(thirdG)
+	sched.Add(thirdG)
 
-	scheduler.Schedule()
+	m := runtime.NewM(1, sched)
+	m.Run(sched)
 }

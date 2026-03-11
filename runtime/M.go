@@ -3,11 +3,14 @@ package runtime
 type M struct {
 	id          int64
 	designatedP *P
+	scheduler   *Scheduler
 }
 
-func NewM(id int64) *M {
+// Inject schedular into M
+func NewM(id int64, sched *Scheduler) *M {
 	return &M{
-		id: id,
+		id:        id,
+		scheduler: sched,
 	}
 }
 
@@ -17,6 +20,29 @@ func (m *M) Run(sched *Scheduler) {
 	if m.designatedP == nil {
 		m.designatedP = sched.AcquireP()
 	}
-	// TODO: if m.designatedP still nil (no idle P), block or spin
-	// else: run schedule loop using m.designatedP
+	if m.designatedP != nil {
+		m.scheduleLoop()
+	}
+}
+
+func (m *M) scheduleLoop() {
+	// Assume M has a designated P
+	for {
+		// Get next G from P's local run queue
+		g := m.designatedP.localQueue.pop()
+		if g == nil {
+			g = m.scheduler.globalRunQueue.pop()
+		}
+		if g == nil {
+			// No more Gs to run, block or spin
+			break
+		}
+
+		g.state = RUNNING
+		g.funcToRun()
+		g.state = RUNNABLE
+
+		m.designatedP.localQueue.add(g)
+
+	}
 }
