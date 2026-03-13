@@ -34,15 +34,15 @@ func (m *M) scheduleLoop() {
 			g = m.scheduler.globalRunQueue.pop()
 		}
 		if g == nil {
-			// No more Gs to run, block or spin
+			// No more Gs to run, release P and exit
 			break
 		}
 
 		g.state = RUNNING
 		g.funcToRun()
-		g.state = RUNNABLE
-
-		m.designatedP.localQueue.add(g)
-
+		g.state = DEAD
+		m.scheduler.GCompleted()
 	}
+	m.scheduler.ReleaseP(m.designatedP)
+	m.designatedP = nil
 }

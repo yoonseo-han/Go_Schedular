@@ -9,7 +9,7 @@ import (
 
 func foo() {
 	fmt.Println("foo")
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 	fmt.Println("foo done")
 }
 
@@ -35,6 +35,12 @@ func main() {
 	thirdG := runtime.NewG(baz)
 	sched.Add(thirdG)
 
-	m := runtime.NewM(1, sched)
-	m.Run(sched)
+	// Start multiple M's, each in its own goroutine (real parallelism)
+	for i := 0; i < sched.GOMAXPROCS; i++ {
+		m := runtime.NewM(int64(i), sched)
+		go m.Run(sched)
+	}
+
+	sched.Wait()
+	fmt.Println("all G's completed")
 }

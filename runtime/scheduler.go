@@ -12,6 +12,7 @@ type Scheduler struct {
 	globalRunQueue *GlobalQueue
 	idlePs         []*P // P's not bound to any M
 	idleMu         sync.Mutex
+	wg             sync.WaitGroup // tracks number of G's not yet completed
 }
 
 // NewScheduler creates the global scheduler with GOMAXPROCS P's in the idle pool.
@@ -54,6 +55,17 @@ func (s *Scheduler) ReleaseP(p *P) {
 // Add puts a runnable G into the global run queue. M's will pick it up when
 // they need work (from their P's local queue or from global).
 func (s *Scheduler) Add(g *G) {
+	s.wg.Add(1)
 	g.state = RUNNABLE
 	s.globalRunQueue.add(g)
+}
+
+// GCompleted is called by an M when it finishes executing a G (once per G).
+func (s *Scheduler) GCompleted() {
+	s.wg.Done()
+}
+
+// Wait blocks until all G's added via Add have completed.
+func (s *Scheduler) Wait() {
+	s.wg.Wait()
 }
