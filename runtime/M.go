@@ -19,6 +19,10 @@ func NewM(id int64, sched *Scheduler) *M {
 func (m *M) Run(sched *Scheduler) {
 	if m.designatedP == nil {
 		m.designatedP = sched.AcquireP()
+		if m.designatedP != nil {
+			// ptr shows identity; same id may repeat in the log when P is released and re-acquired (not concurrent sharing).
+			// fmt.Printf("M %d acquired P id=%d ptr=%p\n", m.id, m.designatedP.id, m.designatedP)
+		}
 	}
 	if m.designatedP != nil {
 		m.scheduleLoop()
@@ -26,15 +30,15 @@ func (m *M) Run(sched *Scheduler) {
 }
 
 func (m *M) scheduleLoop() {
-	// Assume M has a designated P
 	for {
-		// Get next G from P's local run queue
 		g := m.designatedP.localQueue.pop()
 		if g == nil {
 			g = m.scheduler.globalRunQueue.pop()
 		}
 		if g == nil {
-			// No more Gs to run, release P and exit
+			g = m.stealWork()
+		}
+		if g == nil {
 			break
 		}
 
@@ -45,4 +49,17 @@ func (m *M) scheduleLoop() {
 	}
 	m.scheduler.ReleaseP(m.designatedP)
 	m.designatedP = nil
+}
+
+// stealWork pops one G from another P's local queue (toy work-stealing).
+func (m *M) stealWork() *G {
+	for _, p := range m.scheduler.listOfPs {
+		if p == m.designatedP {
+			continue
+		}
+		if g := p.localQueue.pop(); g != nil {
+			return g
+		}
+	}
+	return nil
 }

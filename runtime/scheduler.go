@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"math/rand/v2"
 	"sync"
 )
 
@@ -25,9 +24,13 @@ func NewScheduler() *Scheduler {
 		GOMAXPROCS:     GOMAXPROCS,
 		globalRunQueue: newGlobalQueue(),
 		idlePs:         make([]*P, 0, GOMAXPROCS),
+		currentPIndex:  0,
+		listOfPs:       make([]*P, 0, GOMAXPROCS),
 	}
-	for range GOMAXPROCS {
-		s.idlePs = append(s.idlePs, NewP(rand.Int64()))
+	for i := range GOMAXPROCS {
+		p := NewP(int64(i))
+		s.listOfPs = append(s.listOfPs, p)
+		s.idlePs = append(s.idlePs, p)
 	}
 	return s
 }
@@ -53,6 +56,7 @@ func (s *Scheduler) ReleaseP(p *P) {
 	}
 	s.idleMu.Lock()
 	defer s.idleMu.Unlock()
+	// fmt.Printf("Releasing P id=%d ptr=%p\n", p.id, p)
 	s.idlePs = append(s.idlePs, p)
 }
 
@@ -62,8 +66,12 @@ func (s *Scheduler) Add(g *G) {
 	g.state = RUNNABLE
 
 	currentP := s.listOfPs[s.currentPIndex]
-	if !currentP.add(g) {
+	placedOnLocal := currentP.add(g)
+	if !placedOnLocal {
+		// fmt.Println("Adding G", g.id, "to global run queue")
 		s.globalRunQueue.add(g)
+	} else {
+		// fmt.Println("Added G", g.id, "to local run queue of P", currentP.id)
 	}
 	s.currentPIndex = (s.currentPIndex + 1) % int64(len(s.listOfPs))
 }
