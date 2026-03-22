@@ -15,6 +15,7 @@ type Scheduler struct {
 	currentPIndex int64 // index of the current P
 
 	idleMu sync.Mutex
+	addMu  sync.Mutex
 	wg     sync.WaitGroup // tracks number of G's not yet completed
 }
 
@@ -62,6 +63,9 @@ func (s *Scheduler) ReleaseP(p *P) {
 
 // Add puts a runnable G into the current P's local run queue.
 func (s *Scheduler) Add(g *G) {
+	s.addMu.Lock()
+	defer s.addMu.Unlock()
+
 	s.wg.Add(1)
 	g.state = RUNNABLE
 
