@@ -10,9 +10,13 @@ const GOMAXPROCS = 10
 type Scheduler struct {
 	GOMAXPROCS     int
 	globalRunQueue *GlobalQueue
-	idlePs         []*P // P's not bound to any M
-	idleMu         sync.Mutex
-	wg             sync.WaitGroup // tracks number of G's not yet completed
+
+	idlePs        []*P // P's not bound to any M
+	listOfPs      []*P
+	currentPIndex int64 // index of the current P
+
+	idleMu sync.Mutex
+	wg     sync.WaitGroup // tracks number of G's not yet completed
 }
 
 // NewScheduler creates the global scheduler with GOMAXPROCS P's in the idle pool.
@@ -52,12 +56,16 @@ func (s *Scheduler) ReleaseP(p *P) {
 	s.idlePs = append(s.idlePs, p)
 }
 
-// Add puts a runnable G into the global run queue. M's will pick it up when
-// they need work (from their P's local queue or from global).
+// Add puts a runnable G into the current P's local run queue.
 func (s *Scheduler) Add(g *G) {
 	s.wg.Add(1)
 	g.state = RUNNABLE
-	s.globalRunQueue.add(g)
+
+	currentP := s.listOfPs[s.currentPIndex]
+	if !currentP.add(g) {
+		s.globalRunQueue.add(g)
+	}
+	s.currentPIndex = (s.currentPIndex + 1) % int64(len(s.listOfPs))
 }
 
 // GCompleted is called by an M when it finishes executing a G (once per G).

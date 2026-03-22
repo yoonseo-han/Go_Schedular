@@ -11,3 +11,7 @@ func NewP(id int64) *P {
 		localQueue: newRunQueue(),
 	}
 }
+
+func (p *P) add(g *G) bool {
+	return p.localQueue.add(g)
+}
